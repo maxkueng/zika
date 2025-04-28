@@ -51,6 +51,8 @@ const shutdown = (signal: string, value: number) => {
   });
 };
 
+let isShuttingDown = false;
+
 const signals = {
   'SIGHUP': 1,
   'SIGINT': 2,
@@ -59,7 +61,10 @@ const signals = {
 
 Object.entries(signals).forEach(([signal, value]) => {
   process.on(signal, () => {
-    logger.info(`Process received a ${signal} signal`);
-    shutdown(signal, value);
+    if (!isShuttingDown) {
+      isShuttingDown = true;
+      logger.info(`Process received a ${signal} signal`);
+      shutdown(signal, value);
+    }
   });
 });

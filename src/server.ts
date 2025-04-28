@@ -76,7 +76,7 @@ export function startServer(config: Config, logger: Logger) {
     },
   });
   
-  startAvailabilityService(mqttClient, config, logger);
+  const { farewell } = startAvailabilityService(mqttClient, config, logger);
   startHomeAssistantDiscoveryService(mqttClient, config, logger);
 
   mqttClient.on('connect', () => {
@@ -195,7 +195,19 @@ export function startServer(config: Config, logger: Logger) {
   });
 
   return (callback?: () => void) => {
-    logger.info('Closing HTTP server');
-    httpServer.close(callback);
+    logger.info('Shutting down');
+    (async () => {
+      await farewell();
+      logger.info('Closing MQTT client');
+      mqttClient.end(() => {
+        logger.info('Closing HTTP server');
+        httpServer.close(callback);
+      });
+    })().catch((error) => {
+      logger.error(error);
+      if (callback) {
+        callback();
+      }
+    })
   };
 }

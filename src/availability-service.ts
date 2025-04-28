@@ -36,4 +36,14 @@ export function startAvailabilityService(mqttClient: MqttClient, config: Config,
   const stopPublishing = () => {
     clearInterval(publishInterval);
   }
+  
+  const farewell = () => {
+    return mqttClient.publishAsync(config.mqtt.availabilityTopic, JSON.stringify({
+      status: 'offline',
+    }, null, '  '))
+  };
+  
+  return {
+    farewell,
+  };
 }
