@@ -169,7 +169,7 @@ export function startServer(config: Config, logger: Logger) {
     logger.info('Zika started');
     logger.info(`API listening on ${apiUrl}`);
     logger.info(`MQTT broker: ${config.mqtt.server}`);
-    logger.info(`Using host tools path: ${config.hostToolsPath}`); 
+    logger.info(`Using named pipe: ${config.fifoPath}`); 
     if (config.debug) {
       logger.info('Debug mode is enabled');
     }

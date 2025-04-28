@@ -29,8 +29,7 @@ export const configSchema = z.object({
   }),
 
   commands: z.record(z.string()),
-  
-  hostToolsPath: z.string().default('/host-tools'),
+  fifoPath: z.string().default('/run/zika/zika-command.fifo'),
 });
 
 

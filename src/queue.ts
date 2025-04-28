@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import fs from 'fs/promises';
 import type { Logger } from 'pino';
 
 import type { Config } from './config';
@@ -11,7 +11,13 @@ export function enqueueCommand(cmd: string, config: Config, logger: Logger) {
   processQueue(config, logger);
 }
 
-export function processQueue(config: Config, logger: Logger) {
+async function writeToFifo(fifoPath: string, command: string) {
+  const fifoHandle = await fs.open(fifoPath, 'w');
+  await fifoHandle.writeFile(command + '\n');
+  await fifoHandle.close();
+}
+
+export async function processQueue(config: Config, logger: Logger) {
   if (runningCommand || commandQueue.length === 0) {
     return;
   }
@@ -20,31 +26,15 @@ export function processQueue(config: Config, logger: Logger) {
   if (!cmd) return;
 
   runningCommand = true;
-  
-  logger.info(`Running queued command: ${cmd}`);
-  
-  const child = exec(
-    cmd,
-    {
-      env: {
-        ...process.env,
-        PATH: `${config.hostToolsPath}:${process.env.PATH}`
-      },
-    },
-    (err, stdout, stderr) => {
-      runningCommand = false;
-      if (err) {
-        logger.error(`Command failed: ${cmd}`, err);
-      }
-      if (stdout) logger.info(`Command output: ${stdout}`);
-      if (stderr) logger.warn(`Command error output: ${stderr}`);
-      processQueue(config, logger);
-    },
-  );
+  logger.info(`Writing queued command to FIFO: ${cmd}`);
 
-  child.on('error', (err) => {
-    logger.error(`Child process error:`, err);
+  try {
+    const fifoPath = config.fifoPath;
+    await writeToFifo(fifoPath, cmd);
+  } catch (err) {
+    logger.error(`Failed to write to FIFO:`, err);
+  } finally {
     runningCommand = false;
     processQueue(config, logger);
-  });
+  }
 }
