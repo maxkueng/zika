@@ -14,10 +14,13 @@ import type { Config } from './config';
 import {
   register,
   startTimeGauge,
+  commandsExecutedCounter,
   mqttEventCounter,
   mqttPayloadErrorCounter,
 } from './metrics';
 import { enqueueCommand } from './queue';
+import { startAvailabilityService } from './availability-service';
+import { startHomeAssistantDiscoveryService } from './ha-discovery';
 
 const commandSchema = z.object({
   command: z.string(),
@@ -65,12 +68,27 @@ export function startServer(config: Config, logger: Logger) {
     clean: true,
     connectTimeout: 4000,
     reconnectPeriod: 1000,
+    will: {
+      topic: config.mqtt.availabilityTopic,
+      payload: JSON.stringify({ status: 'offline' }, null, '  '),
+      qos: 1,
+      retain: true,
+    },
   });
+  
+  startAvailabilityService(mqttClient, config, logger);
+  startHomeAssistantDiscoveryService(mqttClient, config, logger);
 
   mqttClient.on('connect', () => {
     logger.info('MQTT connected');
     mqttEventCounter.inc({ event: 'connect' });
-    mqttClient.subscribe(config.mqtt.topic);
+    
+    mqttClient.subscribe(config.mqtt.commandTopic);
+  });
+  
+  mqttClient.on('disconnect', () => {
+    mqttEventCounter.inc({ event: 'disconnect' });
+    logger.info('MQTT disconnected');
   });
   
   mqttClient.on('reconnect', () => {
@@ -93,22 +111,23 @@ export function startServer(config: Config, logger: Logger) {
     logger.warn('MQTT is offline');
   });
 
-  mqttClient.on('message', (topic: string, message: Buffer) => {
+  mqttClient.on('message', (_topic: string, message: Buffer) => {
     mqttEventCounter.inc({ event: 'message' });
   
     try {
       const payload = commandSchema.parse(JSON.parse(message.toString()));
   
-      const shellCommand = config.commands[payload.command];
+      const hostCommand = config.commands[payload.command].command;
   
-      if (!shellCommand) {
+      if (!hostCommand) {
         logger.warn(`Received unknown command: ${payload.command}`);
         return;
       }
   
-      logger.info(`Executing command: ${payload.command} -> ${shellCommand}`);
+      logger.info(`Executing command: ${payload.command} -> ${hostCommand}`);
   
-      enqueueCommand(shellCommand, config, logger);
+      commandsExecutedCounter.inc({ command: payload.command });
+      enqueueCommand(hostCommand, config, logger);
     } catch (err) {
       mqttPayloadErrorCounter.inc();
       logger.error('Invalid MQTT payload:', err);
@@ -176,7 +195,9 @@ export function startServer(config: Config, logger: Logger) {
   });
 
   return (callback?: () => void) => {
+    logger.info('Closing MQTT client');
     mqttClient.end(() => {
+      logger.info('Closing HTTP server');
       httpServer.close(callback);
     });
   };

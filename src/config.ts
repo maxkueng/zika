@@ -25,10 +25,23 @@ export const configSchema = z.object({
     user: z.string().optional(),
     password: z.string().optional(),
     clientId: z.string().optional(),
-    topic: z.string().default('zika'),
+    commandTopic: z.string().default('zika/command'),
+    availabilityTopic: z.string().default('zika/availability'),
   }),
+  
+  ha: z.object({
+    deviceIdentifier: z.string(),
+    discoveryTopic: z.string(),
+  }).optional(),
+  
+  commands: z.record(z.object({
+    command: z.string(),
+    ha: z.object({
+      name: z.string(),
+      icon: z.string(),
+    }).optional(),
+  })),
 
-  commands: z.record(z.string()),
   fifoPath: z.string().default('/run/zika/zika-command.fifo'),
 });
 

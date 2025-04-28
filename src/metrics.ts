@@ -11,6 +11,12 @@ export const startTimeGauge = new Gauge({
   help: 'Start time of the server in seconds since epoch',
 });
 
+export const commandsExecutedCounter = new Counter({
+  name: 'zika_commands_executed_total',
+  help: 'Total commands executed',
+  labelNames: ['command'],
+});
+
 export const mqttEventCounter = new Counter({
   name: 'zika_mqtt_events_total',
   help: 'Total MQTT events',
