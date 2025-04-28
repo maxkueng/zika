@@ -195,10 +195,7 @@ export function startServer(config: Config, logger: Logger) {
   });
 
   return (callback?: () => void) => {
-    logger.info('Closing MQTT client');
-    mqttClient.end(() => {
-      logger.info('Closing HTTP server');
-      httpServer.close(callback);
-    });
+    logger.info('Closing HTTP server');
+    httpServer.close(callback);
   };
 }
